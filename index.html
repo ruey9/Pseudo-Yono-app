@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>YONO Banking App</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f5f5f5;
+  margin: 0;
+  padding: 0;
+}
+.page {
+  display: none;
+  padding: 20px;
+}
+.active {
+  display: block;
+}
+.card {
+  background: white;
+  padding: 20px;
+  max-width: 400px;
+  margin: 30px auto;
+  border-radius: 10px;
+  box-shadow: 0 0 10px #ccc;
+}
+input, button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 5px;
+  border: 1px solid #999;
+}
+button {
+  background: #ff6f00;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+button:hover {
+  background: #e65c00;
+}
+h2 {
+  text-align: center;
+}
+nav button {
+  width: auto;
+  margin-right: 10px;
+}
+</style>
+</head>
+<body>
+
+<!-- REGISTER PAGE -->
+<div id="register-page" class="page active">
+  <div class="card">
+    <h2>Register</h2>
+    <input id="reg-name" placeholder="Full Name (10–50 letters)">
+    <input id="reg-user" placeholder="Mobile Number (10 digits)">
+    <input id="reg-mpin" placeholder="MPIN (6 digits)" type="password">
+    <input id="reg-balance" placeholder="Initial Balance">
+    <button id="btn-register">Register</button>
+    <button id="goto-login">Already have an account? Login</button>
+  </div>
+</div>
+
+<!-- LOGIN PAGE -->
+<div id="login-page" class="page">
+  <div class="card">
+    <h2>Login</h2>
+    <input id="login-user" placeholder="Mobile Number (10 digits)">
+    <input id="login-mpin" placeholder="MPIN (6 digits)" type="password">
+    <button id="btn-login">Login</button>
+    <button id="goto-register">Create new account</button>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard-page" class="page">
+  <div class="card">
+    <h2>Dashboard</h2>
+    <p id="dash-welcome"></p>
+    <button id="open-account-info">Account Information</button>
+    <button id="open-transfer">Funds Transfer</button>
+    <button id="open-bills">Bill Payments</button>
+    <button id="btn-logout">Logout</button>
+  </div>
+</div>
+
+<!-- ACCOUNT INFO PAGE -->
+<div id="account-page" class="page">
+  <div class="card">
+    <h2>Account Information</h2>
+    <p id="acc-name"></p>
+    <p id="acc-user"></p>
+    <p id="acc-balance"></p>
+    <h3>Transactions:</h3>
+    <div id="acc-trans"></div>
+    <button onclick="goDashboard()">Back</button>
+  </div>
+</div>
+
+<!-- TRANSFER PAGE -->
+<div id="transfer-page" class="page">
+  <div class="card">
+    <h2>Funds Transfer</h2>
+    <input id="transfer-to" placeholder="Receiver Mobile Number (10 digits)">
+    <input id="transfer-amount" placeholder="Amount">
+    <button id="btn-transfer">Transfer</button>
+    <button onclick="goDashboard()">Back</button>
+  </div>
+</div>
+
+<!-- BILL PAYMENT PAGE -->
+<div id="bills-page" class="page">
+  <div class="card">
+    <h2>Bill Payment</h2>
+    <input id="bill-type" placeholder="Bill Type (Electricity, Water, etc.)">
+    <input id="bill-amount" placeholder="Amount">
+    <button id="btn-bill-pay">Pay Bill</button>
+    <button onclick="goDashboard()">Back</button>
+  </div>
+</div>
+
+<script>
+// Utility
+const uid = () => Math.random().toString(36).substring(2, 10);
+
+const showPage = id => {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+};
+
+const loadUsers = () => JSON.parse(localStorage.getItem("users") || "[]");
+const saveUsers = users => localStorage.setItem("users", JSON.stringify(users));
+
+const setSession = user => localStorage.setItem("session", JSON.stringify(user));
+const getSession = () => JSON.parse(localStorage.getItem("session") || "null");
+const clearSession = () => localStorage.removeItem("session");
+
+function goDashboard() {
+  renderDashboard();
+}
+
+// REGISTER
+document.getElementById('btn-register').onclick = () => {
+  const name = document.getElementById('reg-name').value.trim();
+  const user = document.getElementById('reg-user').value.trim();
+  const mpin = document.getElementById('reg-mpin').value.trim();
+  const balance = parseFloat(document.getElementById('reg-balance').value) || 0;
+
+  // Full name validation
+  if (!/^[A-Za-z ]+$/.test(name)) {
+    alert("Full name should have only alphabets");
+    return;
+  }
+  if (name.length < 10 || name.length > 50) {
+    alert("Full name must be between 10 and 50 characters");
+    return;
+  }
+
+  // 10-digit mobile validation
+  const mobileRegex = /^[0-9]{10}$/;
+  if (!mobileRegex.test(user)) {
+    alert("Mobile number must be exactly 10 digits");
+    return;
+  }
+
+  if (mpin.length !== 6) {
+    alert("MPIN must be 6 digits");
+    return;
+  }
+
+  const users = loadUsers();
+  if (users.some(u => u.user === user)) {
+    alert("User already exists");
+    return;
+  }
+
+  const account = {
+    id: uid(),
+    name,
+    user,
+    mpin,
+    balance,
+    transactions: [
+      { id: uid(), type: "credit", amount: balance, desc: "Initial Deposit", when: new Date().toLocaleString() }
+    ]
+  };
+
+  users.push(account);
+  saveUsers(users);
+  setSession(account);
+  renderDashboard();
+  alert("Registration successful");
+};
+
+// LOGIN
+document.getElementById('btn-login').onclick = () => {
+  const user = document.getElementById('login-user').value.trim();
+  const mpin = document.getElementById('login-mpin').value.trim();
+
+  const mobileRegex = /^[0-9]{10}$/;
+  if (!mobileRegex.test(user)) {
+    alert("Enter a valid 10-digit mobile number");
+    return;
+  }
+
+  const users = loadUsers();
+  const found = users.find(u => u.user === user && u.mpin === mpin);
+
+  if (!found) {
+    alert("Invalid credentials");
+    return;
+  }
+
+  setSession(found);
+  renderDashboard();
+};
+
+// REDIRECT BUTTONS
+document.getElementById('goto-login').onclick = () => showPage('login-page');
+document.getElementById('goto-register').onclick = () => showPage('register-page');
+
+// DASHBOARD RENDER
+function renderDashboard() {
+  const session = getSession();
+  if (!session) return showPage('login-page');
+
+  document.getElementById("dash-welcome").innerText = "Welcome, " + session.name;
+
+  showPage('dashboard-page');
+}
+
+// OPEN SUBPAGES
+document.getElementById("open-account-info").onclick = () => {
+  const s = getSession();
+  const users = loadUsers();
+  const acc = users.find(u => u.id === s.id);
+
+  document.getElementById("acc-name").innerText = "Name: " + acc.name;
+  document.getElementById("acc-user").innerText = "Mobile: " + acc.user;
+  document.getElementById("acc-balance").innerText = "Balance: ₹" + acc.balance;
+
+  const transDiv = document.getElementById("acc-trans");
+  transDiv.innerHTML = "";
+  acc.transactions.forEach(t => {
+    transDiv.innerHTML += `<p>${t.type.toUpperCase()} - ₹${t.amount} (${t.desc}) [${t.when}]</p>`;
+  });
+
+  showPage("account-page");
+};
+
+document.getElementById("open-transfer").onclick = () => showPage("transfer-page");
+document.getElementById("open-bills").onclick = () => showPage("bills-page");
+
+// TRANSFER
+document.getElementById("btn-transfer").onclick = () => {
+  const to = document.getElementById("transfer-to").value.trim();
+  const amount = parseFloat(document.getElementById("transfer-amount").value);
+
+  if (!/^[0-9]{10}$/.test(to)) return alert("Enter valid 10-digit receiver number");
+  if (amount <= 0) return alert("Enter a valid amount");
+
+  const users = loadUsers();
+  const session = getSession();
+  const sender = users.find(u => u.id === session.id);
+  const receiver = users.find(u => u.user === to);
+
+  if (!receiver) return alert("Receiver not found");
+  if (sender.balance < amount) return alert("Insufficient balance");
+
+  sender.balance -= amount;
+  receiver.balance += amount;
+
+  sender.transactions.push({ id: uid(), type: "debit", amount, desc: "Transfer to " + to, when: new Date().toLocaleString() });
+  receiver.transactions.push({ id: uid(), type: "credit", amount, desc: "Received from " + sender.user, when: new Date().toLocaleString() });
+
+  saveUsers(users);
+  alert("Transfer successful");
+  goDashboard();
+};
+
+// BILL PAY
+document.getElementById("btn-bill-pay").onclick = () => {
+  const type = document.getElementById("bill-type").value.trim();
+  const amount = parseFloat(document.getElementById("bill-amount").value);
+
+  if (type.length < 3) return alert("Enter valid bill type");
+  if (amount <= 0) return alert("Enter valid amount");
+
+  const users = loadUsers();
+  const session = getSession();
+  const acc = users.find(u => u.id === session.id);
+
+  if (acc.balance < amount) return alert("Insufficient balance");
+
+  acc.balance -= amount;
+  acc.transactions.push({ id: uid(), type: "debit", amount, desc: type + " Bill Payment", when: new Date().toLocaleString() });
+
+  saveUsers(users);
+  alert("Bill paid successfully");
+  goDashboard();
+};
+
+// LOGOUT
+document.getElementById("btn-logout").onclick = () => {
+  clearSession();
+  showPage("login-page");
+};
+</script>
+
+</body>
+</html>
